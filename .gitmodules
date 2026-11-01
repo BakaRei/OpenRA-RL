@@ -1,3 +1,4 @@
 [submodule "OpenRA"]
 	path = OpenRA
-	url = https://github.com/yxc20089/OpenRA.git
+	url = https://github.com/BakaRei/OpenRA.git
+	branch = bot-arena-m1
