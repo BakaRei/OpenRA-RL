@@ -1,7 +1,7 @@
 # ==============================================================================
-# Stage 1: Build OpenRA from source (C#/.NET 8.0)
+# Stage 1: Build OpenRA from source (C#/.NET 10, required by bot-arena-m1)
 # ==============================================================================
-FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim AS openra-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim AS openra-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone OpenRA source from GitHub. The generated RL bridge stubs now live
-# upstream, so GH200 can stay on the remote bleed branch and use SKIP_PROTOC.
-ARG OPENRA_REPO=https://github.com/yxc20089/OpenRA.git
-ARG OPENRA_BRANCH=bleed
+# Clone the arena engine. bot-arena-m1 adds per-player RL bridge RPCs, the
+# start gate, and realtime mode. Generated stubs are checked in (SKIP_PROTOC).
+ARG OPENRA_REPO=https://github.com/BakaRei/OpenRA.git
+ARG OPENRA_BRANCH=bot-arena-m1
 ARG OPENRA_CACHE_BUST=0
 RUN echo "OpenRA cache bust: $OPENRA_CACHE_BUST" && \
     git clone --depth=1 --branch "$OPENRA_BRANCH" "$OPENRA_REPO" /src/openra
@@ -28,9 +28,12 @@ RUN find . -name '*.sh' -exec sed -i 's/\r$//' {} + && \
 
 # Build with system libraries (unix-generic avoids bundled native binaries).
 # GH200 uses linux_arm64, where Grpc.Tools' bundled protoc currently crashes.
-# Use the checked-in generated RL bridge stubs from the upstream OpenRA repo.
+# Use the checked-in generated RL bridge stubs from the engine repo.
+# configure-system-libraries.sh deletes bin/*.so before linking. A fresh
+# build has no placeholders, so a missing file must not fail the script.
 ENV SKIP_PROTOC=true
-RUN make TARGETPLATFORM=unix-generic CONFIGURATION=Release
+RUN sed -i 's/rm "bin/rm -f "bin/' configure-system-libraries.sh && \
+    make TARGETPLATFORM=unix-generic CONFIGURATION=Release
 
 # Verify critical output (includes Null platform for headless RL operation)
 RUN test -f bin/OpenRA.dll && \
@@ -59,7 +62,7 @@ RUN pip install --upgrade pip && \
 # ==============================================================================
 # Stage 3: Runtime image
 # ==============================================================================
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim AS dotnet-runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-bookworm-slim AS dotnet-runtime
 
 FROM python:3.11-slim-bookworm
 
