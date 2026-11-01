@@ -23,6 +23,7 @@ async def test_realtime_tick_rate_rejected_command_and_replay(arena_engine):
     await asyncio.sleep(4)
     t1 = (await client.observe("Multi0"))["tick"]
     rate = (t1 - t0) / 4
+    print(f"realtime tick rate {rate:.2f}/s ({t0} -> {t1})")
     assert 15 <= rate <= 40, f"tick rate {rate:.1f}/s (tick {t0} -> {t1})"
 
     queued = await client.issue("Multi0", [{"action": "fast_advance", "ticks": 50}])
@@ -41,8 +42,9 @@ async def test_realtime_tick_rate_rejected_command_and_replay(arena_engine):
     assert replays, "no .orarep written"
     blob = replays[0].read_bytes()
     assert len(blob) > 64
-    # Replay metadata is a JSON/YAML footer inside the file. Maelstrom is the launched map.
-    assert b"maelstrom" in blob.lower() or b"Maelstrom" in blob
+    # Metadata footer names the mod and the map by content hash, not by filename.
+    assert b"Mod: ra" in blob and b"\n\tMap:" in blob
+    assert b"Slot: Multi0" in blob and b"Bot: arena-agent" in blob
 
 
 async def test_one_external_three_builtin_slots(mixed_engine):
@@ -54,6 +56,8 @@ async def test_one_external_three_builtin_slots(mixed_engine):
     assert by["Multi2"].is_external is False
     assert by["Multi3"].is_external is False
     assert len({p.spawn for p in snap.players}) == 4
+    # OpenRA uses team 0 for "no shared team": the four players are not allied (FFA).
+    assert [p.team for p in snap.players] == [0, 0, 0, 0]
     assert (await client.start_match()).ok
     obs = await client.observe("Multi0")
     assert "economy" in obs and "tick" in obs
