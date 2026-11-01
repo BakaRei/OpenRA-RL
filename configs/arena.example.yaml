@@ -1,0 +1,39 @@
+# openra-arena run --config configs/arena.example.yaml --tokens matches/tokens.json
+# 1 external bot (one of Rei's Grok Bots on this machine, via the MCP connector) + 3 Grok persona players.
+# Paths are relative to the cwd. Needs $XAI_API_KEY in the environment (never put the key in this file).
+engine_dir: /workspace/work/arena-engine
+output_root: matches
+map_file: maelstrom.oramap        # Maelstrom 110x110, 4 spawns, rotational symmetry; alt: x-lake.oramap (more room)
+grpc_port: 19999
+mcp_host: 127.0.0.1               # localhost only by design: all competing Grok Bots share this machine
+mcp_port: 8765
+
+slots:
+  - {slot: Multi0, display: 红方, kind: external, persona: balanced, fallback: persona}
+  - {slot: Multi1, display: 蓝方, kind: persona, persona: rusher}
+  - {slot: Multi2, display: 绿方, kind: persona, persona: economist}
+  - {slot: Multi3, display: 黄方, kind: persona, persona: turtle}
+
+timing:
+  summary_interval_s: 15
+  urgent_cooldown_s: 3
+  takeover_after_s: 60
+  wait_players_s: 120
+  executor_interval_s: 1
+  spatial_every: 5
+  max_game_minutes: 30
+  sample_interval_ticks: 750      # 30 s at 25 ticks/s
+  ticks_per_second: 25
+
+scoring:
+  territory_weight: 100
+  army_weight: 0.01
+  income_weight: 0.005
+
+llm:                               # arena defaults = config.default_llm(); api_key empty -> $XAI_API_KEY
+  base_url: https://api.x.ai/v1    # xAI, OpenAI-compatible; client appends /chat/completions
+  model: grok-4.7
+  reasoning_effort: low
+  max_tokens: 800
+  max_retries: 2
+  retry_backoff_s: 3
